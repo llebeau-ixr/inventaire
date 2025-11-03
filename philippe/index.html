@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
+        />
+        <title>QR Code Scanner</title>
+    </head>
+
+    <body style="margin: 0">
+        <button id="start-scanning">Démarrer le scan</button>
+        <p id="result"></p>
+        <script type="module">
+            import "https://cdn.jsdelivr.net/npm/scanbot-web-sdk@7.0.0/bundle/ScanbotSDK.ui2.min.js";
+            const sdk = await ScanbotSDK.initialize({
+                enginePath:
+                    "https://cdn.jsdelivr.net/npm/scanbot-web-sdk@7.0.0/bundle/bin/barcode-scanner/",
+            });
+            document
+                .getElementById("start-scanning")
+                .addEventListener("click", async () => {
+
+                    const config =
+                        new ScanbotSDK.UI.Config.BarcodeScannerScreenConfiguration();
+                        config.scannerConfiguration.barcodeFormats = ["QR_CODE"];
+                        config.viewFinder.visible = false;
+                        config.useCase.arOverlay.visible = true;
+                        config.useCase.arOverlay.automaticSelectionEnabled = false;
+                        config.useCase.confirmationSheetEnabled = true;
+
+                    const scanResult = await ScanbotSDK.UI.createBarcodeScanner(config);
+                    if (scanResult?.items?.length > 0) {
+                        document.getElementById("result").innerText =
+                            `Barcode type: ${scanResult.items[0].barcode.format} \n` +
+                            `Barcode content: "${scanResult.items[0].barcode.text}" \n`;
+                    } else {
+                        document.getElementById("result").innerText = "Scan annulé";
+                    }
+                });
+        </script>
+    </body>
+</html>
