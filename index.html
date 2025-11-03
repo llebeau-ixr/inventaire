@@ -473,7 +473,7 @@ function scanQRCode() {
 
         const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert", // améliore la détection sur fond clair
+            inversionAttempts: "attemptBoth", // plus robuste
         });
 
         if (code) {
@@ -483,8 +483,8 @@ function scanQRCode() {
         }
     }
 
+    requestAnimationFrame(scanQRCode); // ← IMPORTANT
 }
-
 
         function processManualInput() {
             const manualInput = document.getElementById('manual-input').value.trim();
