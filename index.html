@@ -464,29 +464,27 @@
 }
 
 function scanQRCode() {
-    if (!isScanning || !qrVideo.videoWidth) {
-        requestAnimationFrame(scanQRCode);
-        return;
+    if (!isScanning) return;
+
+    if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+        qrCanvas.width = qrVideo.videoWidth;
+        qrCanvas.height = qrVideo.videoHeight;
+        qrCanvasContext.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
+
+        const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert", // améliore la détection sur fond clair
+        });
+
+        if (code) {
+            console.log("QR détecté :", code.data);
+            onScanSuccess(code.data.trim());
+            return;
+        }
     }
 
-    qrCanvas.width = qrVideo.videoWidth;
-    qrCanvas.height = qrVideo.videoHeight;
-    qrCanvasContext.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
-
-    const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-    if (code && code.data) {
-        const refCode = code.data.trim();
-        onScanSuccess(refCode);
-        return; // stoppe le scan après détection
-    }
-
-    // relance après 200ms pour éviter CPU max
-    setTimeout(() => {
-        requestAnimationFrame(scanQRCode);
-    }, 200);
 }
+
 
         function processManualInput() {
             const manualInput = document.getElementById('manual-input').value.trim();
