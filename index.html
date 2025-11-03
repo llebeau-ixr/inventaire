@@ -1,0 +1,840 @@
+<!DOCTYPE html>    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventaire ARINFO</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        body { padding: 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        #boutonScanner {
+            width: 100%;
+            padding: 15px;
+            background-color: #007bff; 
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #reader {
+            width: 100%;
+            max-width: 400px; 
+            margin: 0 auto 20px auto;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            display: none; 
+            position: relative;
+            overflow: hidden;
+        }
+
+        #qr-video {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+
+        #qr-canvas {
+            display: none;
+        }
+
+        .qr-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #4CAF50;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .qr-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+            background: transparent;
+        }
+        
+        .search-container {
+            display: flex; 
+            gap: 5px; 
+            margin-bottom: 15px;
+        }
+        
+        #barreRecherche {
+            flex-grow: 1;
+            padding: 12px 20px;
+            margin: 0; 
+            box-sizing: border-box;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        #barreRecherche:focus {
+            border-color: #388E3C; 
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); 
+            outline: none; 
+        }
+
+        .voice-button { 
+            padding: 12px 10px;
+            background-color: #4CAF50; 
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px; 
+            cursor: pointer;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease;
+        }
+        
+        .table-responsive { overflow-x: auto; margin-bottom: 30px; }
+        .inventaire-table { width: 100%; min-width: 600px; border-collapse: collapse; margin-top: 10px; }
+        .inventaire-table th { background-color: #4CAF50; color: white; padding: 12px 15px; text-align: left; white-space: nowrap; }
+        .inventaire-table td { border: 1px solid #ddd; padding: 10px 15px; white-space: nowrap; }
+        .inventaire-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .inventaire-table tr:hover { background-color: #f1f1f1; }
+        h2 { color: #4CAF50; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+
+        #confirmation-popup { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.7); 
+            z-index: 100; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        #confirmation-box { 
+            background: white; 
+            padding: 25px; 
+            width: 90%; 
+            max-width: 450px; 
+            border-radius: 8px; 
+            text-align: center; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #choixSalle { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc; }
+        .action-button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-weight: bold; }
+        .ref-code { color: #007bff; font-family: monospace; font-weight: bold; }
+        
+        .scanner-controls {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .scanner-btn {
+            background: linear-gradient(to right, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+
+        .fallback-section {
+            display: none;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .manual-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #007bff;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        #chat-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        #chat-button:hover {
+            transform: scale(1.05);
+        }
+        #chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 90%;
+            max-width: 350px;
+            height: 400px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            z-index: 100;
+            overflow: hidden;
+        }
+        #chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #chat-messages {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-input-container {
+            padding: 10px;
+            display: flex;
+        }
+        #chat-voice-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 10px;
+            cursor: pointer;
+            line-height: 1;
+            border-radius: 4px 0 0 4px;
+            margin-right: -1px;
+        }
+        #chat-input-container #chat-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 0;
+        }
+        #chat-input-container #chat-send {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .bot-message {
+            background-color: #e9e9ff;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            align-self: flex-start;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #d1ffc9;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            align-self: flex-end;
+            text-align: right;
+            max-width: 80%;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+    
+    <button id="boutonScanner" onclick="toggleScan()">
+        Scanner un QR Code 📷
+    </button>
+
+    <div id="reader">
+        <video id="qr-video" autoplay playsinline></video>
+        <canvas id="qr-canvas"></canvas>
+        <div class="qr-overlay">
+            <div class="qr-frame"></div>
+        </div>
+        <div class="scanner-controls">
+            <button class="scanner-btn" onclick="stopScan()" style="background: linear-gradient(to right, #f44336, #d32f2f);">❌ Fermer la caméra</button>
+        </div>
+        
+        <!-- Section de fallback pour mobile -->
+        <div class="fallback-section" id="fallback-section">
+            <h3>📱 Alternative pour mobile</h3>
+            <p>Si la caméra ne fonctionne pas, entrez manuellement la référence :</p>
+            <input type="text" class="manual-input" id="manual-input" placeholder="Ex: LRY-PCP-007">
+            <button class="scanner-btn" onclick="processManualInput()" style="background: linear-gradient(to right, #007bff, #0056b3);">Valider la référence</button>
+        </div>
+    </div>
+    <div id="scan-message" style="text-align: center; margin-bottom: 10px; color: red;"></div>
+
+    <div class="search-container"> 
+        <input type="text" id="barreRecherche" onkeyup="filtrerToutInventaire()" 
+            placeholder="Rechercher dans l'inventaire (Écrans, PC, TV)">
+        
+        <button id="boutonVocal" class="voice-button" onclick="startVoiceSearch('barreRecherche', 'boutonVocal', filtrerToutInventaire)">
+            🎙️
+        </button>
+    </div>
+    <div id="inventaire-container">
+        <h2>Écrans</h2>
+        <div class="table-responsive">
+            <table id="tableau-ecrans" class="inventaire-table"></table>
+        </div>
+
+        <h2>PC</h2>
+        <div class="table-responsive">
+            <table id="tableau-pc" class="inventaire-table"></table>
+        </div>
+
+        <h2>TV</h2>
+        <div class="table-responsive">
+            <table id="tableau-tv" class="inventaire-table"></table>
+        </div>
+    </div>
+
+    <div id="confirmation-popup" style="display:none;">
+        <div id="confirmation-box">
+            <h3>Confirmer le déplacement du matériel</h3>
+            <p>Article scanné : <span id="ref-display" class="ref-code"></span></p>
+            
+            <label for="choixSalle" style="display: block; margin-top: 15px; font-weight: bold;">Choisir la nouvelle destination :</label>
+            <select id="choixSalle" onchange="toggleApprenantInput()">
+                <option value="Magasin">Magasin</option>
+                <option value="TAI">TAI</option>
+                <option value="DWWM">DWWM</option>
+                <option value="CDA">CDA</option>
+                <option value="IMEP">IMEP</option>
+                <option value="CDUI">CDUI</option>
+                <option value="MAV">MAV</option>
+                <option value="TEBDP">TEBDP</option>
+                <option value="BIMOD">BIMOD</option>
+                <option value="Administratif">Bureaux - Administratif</option>
+                <option value="Service Informatique">Bureaux - Service Informatique</option>
+                <option value="LOCATION PERSONNEL">LOCATION</option>
+                <option value="LOCATION ÉLÈVES">LOCATION></option>
+            </select>
+            
+            <div id="apprenant-input" style="margin-top: 10px; display: none;">
+                <input type="text" id="nomApprenant" placeholder="Nom de l'apprenant concerné" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+
+            <p id="statut-final" style="margin-top: 15px; font-size: 1.1em;">Statut final : <span id="statut-display" style="color: #4CAF50; font-weight: bold;">Magasin</span></p>
+
+            <button onclick="confirmerMiseAJour()" class="action-button" style="background-color: #4CAF50; color: white;">Confirmer</button>
+            <button onclick="annulerMiseAJour()" class="action-button" style="background-color: #f44336; color: white;">Annuler</button>
+            
+            <p id="message-statut" style="margin-top: 15px; font-weight: bold;"></p>
+        </div>
+    </div>
+    
+    <button id="chat-button" onclick="toggleChat()">🤖</button>
+
+    <div id="chat-window">
+        <div id="chat-header">
+            InfoBOT - Assistant 
+            <span style="cursor: pointer;" onclick="toggleChat()">✖️</span>
+        </div>
+        <div id="chat-messages">
+            </div>
+        <div id="chat-input-container">
+            <button id="chat-voice-button" class="voice-button" onclick="startVoiceSearch('chat-input', 'chat-voice-button')">
+                🎙️
+            </button>
+            <input type="text" id="chat-input" placeholder="Posez une question..." onkeypress="if(event.key === 'Enter') processUserInput()">
+            <button id="chat-send" onclick="processUserInput()">Envoyer</button>
+        </div>
+    </div>
+
+    <canvas id="qr-canvas" style="display: none;"></canvas>
+
+    <script>
+        const DOC_ID = '2PACX-1vSfPHeLzbWY6D_Iv1NSxPQ2LzNoYARX6o6OH9-_34TYAXhulCtBOW-RzNmcyEuLtTgS2SbDyyddV3Zn';
+        
+        const INVENTAIRE_CONFIG = [
+            { id: 'ecrans', titre: 'Écrans', url: `https://docs.google.com/spreadsheets/d/e/${DOC_ID}/pub?gid=1729106152&output=csv` },
+            { id: 'pc', titre: 'PC', url: `https://docs.google.com/spreadsheets/d/e/${DOC_ID}/pub?gid=0&output=csv` },
+            { id: 'tv', titre: 'TV', url: `https://docs.google.com/spreadsheets/d/e/${DOC_ID}/pub?gid=1138217042&output=csv` }
+        ];
+
+        let refArticleGlobal = null;
+        let isScanning = false;
+        let isListening = false; 
+        let qrStream = null;
+        let qrVideo = null;
+        let qrCanvas = null;
+        let qrCanvasContext = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            chargerToutInventaire();
+            const welcomeMessage = "Bonjour ! Je suis InfoBOT, votre assistant pour l'inventaire. Comment puis-je vous aider ?";
+            addBotMessage(welcomeMessage); 
+            addBotMessage("Essayez 'aide', 'scan' ou 'recherche'. (Utilisez le 🎙️ pour poser votre question).");
+            
+            qrVideo = document.getElementById('qr-video');
+            qrCanvas = document.getElementById('qr-canvas');
+            qrCanvasContext = qrCanvas.getContext('2d');
+        });
+
+        async function toggleScan() {
+            if (isScanning) {
+                stopScan();
+            } else {
+                await startScan();
+            }
+        }
+
+        async function startScan() {
+    const scanMessage = document.getElementById('scan-message');
+    scanMessage.style.color = 'black';
+    scanMessage.textContent = 'Initialisation du scanner...';
+
+
+    try {
+        const constraints = {
+            audio: false,
+            video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        // Essaye caméra arrière puis avant
+        qrStream = await navigator.mediaDevices.getUserMedia(constraints)
+            .catch(async () => {
+                constraints.video.facingMode = "user";
+                return await navigator.mediaDevices.getUserMedia(constraints);
+            });
+
+        qrVideo.srcObject = qrStream;
+
+        // Nécessaire sur mobile pour activer la lecture
+        await qrVideo.play();
+
+        // Rendre visible
+        document.getElementById('reader').style.display = 'block';
+        document.getElementById('boutonScanner').textContent = 'Fermer le Scanner';
+        document.getElementById('inventaire-container').style.display = 'none';
+        document.querySelector('.search-container').style.display = 'none';
+        document.getElementById('fallback-section').style.display = 'none';
+
+        isScanning = true;
+        scanMessage.textContent = '📷 Caméra active — pointez vers un QR code';
+        scanMessage.style.color = 'green';
+
+        // Lance la boucle de scan
+        scanQRCode();
+
+    } catch (error) {
+        console.error('Erreur accès caméra:', error);
+        scanMessage.textContent = "❌ Impossible d'accéder à la caméra.";
+        showFallbackScanner();
+    }
+}
+
+function scanQRCode() {
+    if (!isScanning || !qrVideo.videoWidth) {
+        requestAnimationFrame(scanQRCode);
+        return;
+    }
+
+    qrCanvas.width = qrVideo.videoWidth;
+    qrCanvas.height = qrVideo.videoHeight;
+    qrCanvasContext.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
+
+    const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+    if (code && code.data) {
+        const refCode = code.data.trim();
+        onScanSuccess(refCode);
+        return; // stoppe le scan après détection
+    }
+
+    // relance après 200ms pour éviter CPU max
+    setTimeout(() => {
+        requestAnimationFrame(scanQRCode);
+    }, 200);
+}
+
+        function processManualInput() {
+            const manualInput = document.getElementById('manual-input').value.trim();
+            if (manualInput) {
+                onScanSuccess(manualInput);
+            } else {
+                document.getElementById('scan-message').textContent = 'Veuillez entrer une référence.';
+                document.getElementById('scan-message').style.color = 'red';
+            }
+        }
+
+        function onScanSuccess(refCode) {
+            stopScan();
+            document.getElementById('scan-message').textContent = 'Référence détectée: ' + refCode;
+            document.getElementById('scan-message').style.color = 'green';
+
+            // Traiter directement la référence
+            handleScannedItem(refCode, null);
+        }
+
+        function handleScannedItem(refCode, statutPropose) {
+            const input = document.getElementById('barreRecherche');
+            input.value = refCode; 
+            filtrerToutInventaire();
+            
+            refArticleGlobal = refCode; 
+            document.getElementById('ref-display').textContent = refArticleGlobal;
+            
+            const select = document.getElementById('choixSalle');
+            if (statutPropose) {
+                select.value = statutPropose;
+            } else {
+                select.value = 'Magasin'; 
+            }
+            
+            toggleApprenantInput(); 
+            document.getElementById('confirmation-popup').style.display = 'flex';
+            document.getElementById('message-statut').textContent = '';
+        }
+
+        async function chargerToutInventaire() {
+            const promises = INVENTAIRE_CONFIG.map(config => chargerDonneesCSV(config));
+            await Promise.all(promises);
+            verifierScanQR();
+        }
+
+        const RESPONSES = [
+            { keywords: ['bonjour', 'salut', 'coucou', 'hello'], response: "Bonjour ! 👋 Je suis InfoBOT, votre assistant pour l'inventaire. Je suis prêt à vous aider. Que souhaitez-vous savoir ?" },
+            { keywords: ['rechercher', 'filtre', 'trouver', 'chercher'], response: "Pour effectuer une recherche, 🔎 entrez simplement le nom, la marque ou la référence de l'article dans la **barre de recherche**. N'oubliez pas le bouton 🎙️ pour la recherche vocale !" },
+            { keywords: ['scan', 'qr code', 'scanner', 'flasher'], response: "Le scan est utilisé pour la gestion des mouvements. Cliquez sur **'Scanner un QR Code 📷'** pour démarrer l'appareil photo et flasher un article vers une nouvelle destination. C'est rapide ! ⚡" },
+            { keywords: ['aide', 'utiliser', 'comment', 'fonctionne', 'tutoriel'], response: "Je suis là pour vous guider ! Mes fonctions principales sont : 1. **Recherche** (texte ou vocal 🎙️), 2. **Scan** (pour le déplacement 📷), 3. **Affichage** des listes (PC, Écrans, TV). Dites-moi ce que vous voulez faire ! 🤔" },
+            { keywords: ['pc', 'ecran', 'tv', 'materiel', 'catégorie'], response: "Les tableaux sont classés par catégorie : Écrans, PC et TV. Vous pouvez filtrer n'importe quel tableau avec la barre de recherche. 📊" },
+            { keywords: ['deplacement', 'salle', 'localisation', 'destination', 'changer place'], response: "Le déplacement d'un article se fait uniquement en scannant son QR Code (bouton 📷). Une fenêtre de confirmation s'ouvrira pour choisir sa nouvelle destination. 🗺️" },
+            { keywords: ['confidentiel', 'securite', 'mot de passe', 'connexion', 'admin', 'prive'], response: "Je suis désolé, je suis un assistant d'inventaire simple. 🔒 Je ne peux pas traiter les questions de sécurité, les mots de passe ou les données confidentielles." },
+            { keywords: ['qui es tu', 'tu es quoi', 'ton role'], response: "Je suis InfoBOT, un script intelligent conçu pour faciliter l'accès aux données d'inventaire (localisation, statut, type) via cette interface web. Mon rôle est d'être efficace et précis. ✅" },
+            { keywords: ['codé', 'inventé', 'créé', 'qui', 'développeur', 'concepteur', 'loan'], response: "J'ai été inventé par Loan." },
+            { keywords: ['merci', 'au revoir', 'a plus'], response: "Avec plaisir ! N'hésitez pas si vous avez d'autres questions. Bonne journée ! 👍" },
+            { keywords: [], response: "Hmm, je n'ai pas trouvé de réponse claire pour cela. 🤷‍♀️ Essayez de reformuler votre question ou d'utiliser des mots-clés simples comme 'aide', 'scan' ou 'rechercher'. Merci ! 🙏" }
+        ];
+
+        // ... (le reste des fonctions reste identique)
+
+        function toggleChat() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.style.display = chatWindow.style.display === 'flex' ? 'none' : 'flex';
+            if (chatWindow.style.display === 'flex') {
+                document.getElementById('chat-input').focus();
+                scrollToBottom();
+            }
+        }
+
+        function addBotMessage(message) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'bot-message';
+            const cleanMessage = message.replace(/\*\*/g, '').replace(/\[.*\]/g, ''); 
+            messageDiv.innerHTML = '🤖 **InfoBOT** : ' + cleanMessage;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addUserMessage(message) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'user-message';
+            messageDiv.textContent = message;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function getBotResponse(text) {
+            const cleanText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[!?.]/g, '');
+            
+            for (const item of RESPONSES) {
+                if (item.keywords.some(keyword => cleanText.includes(keyword))) {
+                    return item.response;
+                }
+            }
+            
+            return RESPONSES.find(r => r.keywords.length === 0).response;
+        }
+
+        function processUserInput() {
+            const inputElement = document.getElementById('chat-input');
+            const userText = inputElement.value.trim();
+            if (!userText) return;
+
+            addUserMessage(userText);
+            inputElement.value = '';
+
+            const response = getBotResponse(userText);
+            addBotMessage(response);
+        }
+
+        function startVoiceSearch(inputId, buttonId, callback = null) {
+            const DEFAULT_EMOJI = '🎙️'; 
+            const LISTENING_EMOJI = '... 🔴'; 
+            
+            if (isListening) return; 
+
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert("Votre navigateur ne supporte pas la reconnaissance vocale. Utilisez Chrome ou Edge.");
+                return; 
+            }
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            
+            recognition.lang = 'fr-FR'; 
+            recognition.interimResults = false; 
+            recognition.continuous = false; 
+            
+            const searchInput = document.getElementById(inputId);
+            const voiceButton = document.getElementById(buttonId);
+            const originalPlaceholder = searchInput.placeholder; 
+            
+            isListening = true;
+            voiceButton.style.backgroundColor = '#f44336'; 
+            voiceButton.textContent = LISTENING_EMOJI;
+            searchInput.placeholder = 'Dites votre message ou recherche...';
+            searchInput.value = ''; 
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                searchInput.value = transcript.trim(); 
+                searchInput.placeholder = originalPlaceholder;
+
+                voiceButton.style.backgroundColor = '#4CAF50';
+                voiceButton.textContent = DEFAULT_EMOJI;
+                isListening = false;
+                
+                if (callback) {
+                    callback();
+                }
+                
+                if (searchInput.id === 'chat-input') {
+                    processUserInput();
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Erreur de reconnaissance vocale:', event.error);
+                voiceButton.style.backgroundColor = '#4CAF50'; 
+                voiceButton.textContent = DEFAULT_EMOJI;
+                searchInput.placeholder = originalPlaceholder;
+                isListening = false;
+            };
+
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error("Erreur de démarrage de la reconnaissance vocale:", e);
+                voiceButton.style.backgroundColor = '#4CAF50';
+                voiceButton.textContent = DEFAULT_EMOJI;
+                searchInput.placeholder = originalPlaceholder;
+                isListening = false;
+                alert("Impossible de démarrer le service vocal. Vérifiez la permission du microphone.");
+            }
+        }
+
+        function verifierScanQR() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const refCode = urlParams.get('ref');
+            const statutPropose = urlParams.get('statut');
+
+            if (refCode) {
+                document.getElementById('reader').style.display = 'none';
+
+                const input = document.getElementById('barreRecherche');
+                input.value = decodeURIComponent(refCode); 
+                filtrerToutInventaire();
+                
+                refArticleGlobal = decodeURIComponent(refCode); 
+                document.getElementById('ref-display').textContent = refArticleGlobal;
+                
+                const select = document.getElementById('choixSalle');
+                if (statutPropose) {
+                    select.value = decodeURIComponent(statutPropose);
+                } else {
+                    select.value = 'Magasin'; 
+                }
+                
+                toggleApprenantInput(); 
+                document.getElementById('confirmation-popup').style.display = 'flex';
+                document.getElementById('message-statut').textContent = ''; 
+            }
+        }
+
+        function annulerMiseAJour() {
+            document.getElementById('confirmation-popup').style.display = 'none';
+            document.getElementById('nomApprenant').value = ''; 
+            history.pushState(null, '', location.pathname);
+            filtrerToutInventaire(); 
+        }
+
+        function confirmerMiseAJour() {
+            const destination = document.getElementById('choixSalle').value;
+            const nomApprenant = document.getElementById('nomApprenant').value.trim();
+            const refArticle = refArticleGlobal;
+            const messageElement = document.getElementById('message-statut');
+
+            let nouveauStatut;
+
+            if (destination === 'LOCATION') {
+                if (nomApprenant === '') {
+                    messageElement.style.color = '#f44336';
+                    messageElement.textContent = "Veuillez saisir le nom de l'apprenant pour une location.";
+                    return;
+                }
+                nouveauStatut = `LOCATION (${nomApprenant.replace(/[;,]/g, '')})`; 
+            } else {
+                nouveauStatut = destination;
+            }
+
+            if (!refArticle) {
+                 messageElement.style.color = '#f44336';
+                 messageElement.textContent = "Erreur: Référence article non trouvée.";
+                 return;
+            }
+
+            messageElement.style.color = '#4CAF50';
+            messageElement.innerHTML = `✅ **SIMULATION RÉUSSIE** : Article <span class="ref-code">${refArticle}</span> déplacé vers : <b>${nouveauStatut}</b>.<br> (La mise à jour réelle dans Google Sheets nécessite un script côté serveur (Google Apps Script).) 💾`;
+            
+            setTimeout(annulerMiseAJour, 5000); 
+        }
+
+        function toggleApprenantInput() {
+            const select = document.getElementById('choixSalle');
+            const inputDiv = document.getElementById('apprenant-input');
+            const statutDisplay = document.getElementById('statut-display');
+            
+            let nouveauStatut = select.value;
+
+            if (select.value === 'LOCATION') {
+                inputDiv.style.display = 'block';
+            } else {
+                inputDiv.style.display = 'none';
+            }
+
+            statutDisplay.textContent = nouveauStatut;
+        }
+
+        function chargerDonneesCSV(config) {
+            const tableElement = document.getElementById(`tableau-${config.id}`);
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const response = await fetch(config.url);
+                    if (!response.ok) throw new Error('Erreur de réseau ou accès refusé');
+                    const csvText = await response.text();
+                    const lignes = csvText.trim().split('\n');
+                    
+                    if (lignes.length < 2 || lignes[0].split(',').length < 2) {
+                        tableElement.innerHTML = `<tbody><tr><td>Pas de données ou format invalide pour ${config.titre}.</td></tr></tbody>`;
+                        return resolve();
+                    }
+                    
+                    const headers = lignes[0].split(','); 
+                    const dataRows = lignes.slice(1);
+                    
+                    construireTableau(headers, dataRows, tableElement);
+                    resolve();
+                } catch (error) {
+                    console.error(`Erreur lors du chargement des données (${config.titre}):`, error);
+                    tableElement.innerHTML = `<tbody><tr><td>Impossible de charger les données pour ${config.titre}. Vérifiez que le GID est correct et que la feuille est publiée en .csv.</td></tr></tbody>`;
+                    reject(error);
+                }
+            });
+        }
+        
+        function construireTableau(headers, dataRows, tableau) {
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header.trim().replace(/"/g, ''); 
+                headerRow.appendChild(th);
+            });
+            
+            tableau.innerHTML = ''; 
+            thead.appendChild(headerRow);
+            tableau.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            dataRows.forEach(line => {
+                const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                if (cells.length > 1 && cells.join('').trim() !== '') { 
+                    const row = document.createElement('tr');
+                    
+                    cells.forEach(cellText => {
+                        const cell = document.createElement('td');
+                        cell.textContent = cellText.trim().replace(/"/g, '');
+                        row.appendChild(cell);
+                    });
+                    
+                    tbody.appendChild(row);
+                }
+            });
+            tableau.appendChild(tbody);
+        }
+
+        function filtrerToutInventaire() {
+            const input = document.getElementById('barreRecherche');
+            const filtre = input.value.toUpperCase();
+            
+            const toutesLesLignes = document.querySelectorAll('.inventaire-table tbody tr');
+
+            toutesLesLignes.forEach(ligne => {
+                let ligneTrouvee = false;
+                const cellules = ligne.getElementsByTagName('td');
+                
+                for (let j = 0; j < cellules.length; j++) {
+                    const contenuCellule = cellules[j].textContent || cellules[j].innerText;
+                    
+                    if (contenuCellule.toUpperCase().indexOf(filtre) > -1) {
+                        ligneTrouvee = true;
+                        break; 
+                    }
+                }
+                
+                ligne.style.display = ligneTrouvee ? "" : "none";
+            });
+        }
+    </script>
+</body>
+</html>
