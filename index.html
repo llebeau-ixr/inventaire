@@ -38,8 +38,13 @@
         }
 
         #qr-canvas {
-            display: none;
-        }
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px; /* invisible mais actif */
+    height: 1px;
+    opacity: 0;
+}
 
         .qr-overlay {
             position: absolute;
@@ -466,22 +471,26 @@
 function scanQRCode() {
     if (!isScanning) return;
 
-    if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+    if (qrVideo.readyState >= qrVideo.HAVE_ENOUGH_DATA) {
         qrCanvas.width = qrVideo.videoWidth;
         qrCanvas.height = qrVideo.videoHeight;
         qrCanvasContext.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
 
         const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth", // plus robuste
+            inversionAttempts: "attemptBoth",
         });
 
         if (code) {
-            console.log("QR détecté :", code.data);
+            console.log("✅ QR détecté :", code.data);
             onScanSuccess(code.data.trim());
             return;
         }
+    } else {
+        console.log("⏳ Attente de la caméra...");
     }
+
+    requestAnimationFrame(scanQRCode);
 
     requestAnimationFrame(scanQRCode); // ← IMPORTANT
 }
